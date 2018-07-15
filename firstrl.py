@@ -6,7 +6,6 @@ LIMIT_FPS = 20
 
 # Keypress Functions
 def handle_keys():
-    global playerx, playery
 
     # misc keys
     key = libtcod.console_wait_for_keypress(True)
