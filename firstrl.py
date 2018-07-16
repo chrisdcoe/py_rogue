@@ -8,6 +8,11 @@ SCREEN_HEIGHT = 50
 MAP_WIDTH = 80
 MAP_HEIGHT = 45
 
+# room dimensions and quantity
+ROOM_MAX_SIZE = 10
+ROOM_MIN_SIZE = 6
+MAX_ROOMS = 30
+
 LIMIT_FPS = 20
 
 color_dark_wall = libtcod.Color(0, 0, 100) # dark blue
@@ -49,6 +54,17 @@ class Rect:
         self.x2 = x + w
         self.y2 = y + h
 
+    def center(self):
+        # check center coordinates of room
+        center_x = (self.x1 + self.x2) / 2
+        center_y = (self.y1 + self.y2) / 2
+        return (center_x, center_y)
+
+    def intersect(self, other):
+        # return true if this rectangle intersects with another
+        return (self.x1 <= other.x2 and self.x2 >= other.x1 and
+                self.y1 <= other.y2 and self.y2 >= other.y1)
+
 class Tile:
     # a map tile and its properties
     def __init__(self, blocked, block_sight = None):
@@ -84,9 +100,7 @@ def create_room(room):
             map[x][y].blocked = False
             map[x][y].block_sight = False
 
-
 def handle_keys():
-
     # misc keys
     key = libtcod.console_wait_for_keypress(True)
     if key.vk == libtcod.KEY_ENTER and key.lalt:
@@ -113,13 +127,59 @@ def make_map():
         for y in range(MAP_HEIGHT) ]
             for x in range(MAP_WIDTH) ]
 
-    # create two test rooms
-    room1 = Rect(20, 15, 10, 15)
-    room2 = Rect(50, 15, 10, 15)
-    create_room(room1)
-    create_room(room2)
-    create_h_tunnel(25, 55, 23)
-    
+    # iterate until max number of rooms, assigning random coordinates and size
+    rooms = []
+    num_rooms = 0
+
+    for r in range(MAX_ROOMS):
+        # random width and height
+        w = libtcod.random_get_int(0, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+        h = libtcod.random_get_int(0, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+        # random position without going out of bounds of the map
+        x = libtcod.random_get_int(0, 0, MAP_WIDTH - w - 1)
+        y = libtcod.random_get_int(0, 0, MAP_HEIGHT - h - 1)
+
+        new_room = Rect(x, y, w, h)
+
+        # check if other rooms intersect with this one
+        failed = False
+        for other_room in rooms:
+            if new_room.intersect(other_room):
+                failed = True
+                break
+        if not failed:
+            # there are no intersections, this room is valid
+            # draw room to map tiles
+            create_room(new_room)
+
+            # find center coordinates of room
+            (new_x, new_y) = new_room.center()
+
+            if num_rooms == 0:
+                # the first room, where player starts
+                player.x = new_x
+                player.y = new_y
+            else:
+                # for all rooms after the first
+                # connect it to previous room with a tunnel
+                # center coords of previous room
+                (prev_x, prev_y) = rooms[num_rooms-1].center()
+
+                # coin toss: horizontal or vertical first?
+                if libtcod.random_get_int(0, 0, 1) == 1:
+                    # horizontal, then vertical
+                    create_h_tunnel(prev_x, new_x, prev_y)
+                    create_v_tunnel(prev_y, new_y, new_x)
+                else:
+                    # vertical, then horizontal
+                    create_v_tunnel(prev_y, new_y, prev_x)
+                    create_h_tunnel(prev_x, new_x, new_y)
+            
+            # append new rooms to list
+            rooms.append(new_room)
+            num_rooms += 1
+            
+
 def render_all():
     # draw all objects in list
     for object in objects:
@@ -149,8 +209,6 @@ libtcod.sys_set_fps(LIMIT_FPS) # Limits FPS if the game is in real time
 
 # Create player
 player = Object(SCREEN_WIDTH/2, SCREEN_HEIGHT/2, '@', libtcod.white)
-player.x = 25
-player.y = 23
 
 # Create NPC
 npc = Object(SCREEN_WIDTH/2 - 5, SCREEN_HEIGHT/2, '@', libtcod.yellow)
