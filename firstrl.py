@@ -41,6 +41,14 @@ class Object:
         # erase the character that represents the Object
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
 
+class Rect:
+    # rectangle on the map, represents a room
+    def __init__(self, x, y, w, h):
+        self.x1 = x
+        self.y1 = y
+        self.x2 = x + w
+        self.y2 = y + h
+
 class Tile:
     # a map tile and its properties
     def __init__(self, blocked, block_sight = None):
@@ -53,6 +61,29 @@ class Tile:
 #################
 ### FUNCTIONS ###
 #################
+
+def create_h_tunnel(x1, x2, y):
+    # create a horizontal tunnel
+    global map
+    for x in range(min(x1, x2), max(x1, x2) + 1):
+        map[x][y].blocked = False
+        map[x][y].block_sight = False
+
+def create_v_tunnel(y1, y2, x):
+    # create a vertical tunnel
+    global map
+    for y in range(min(y1, y2), max(y1, y2) + 1):
+        map[x][y].blocked = False
+        map[x][y].block_sight = False
+
+def create_room(room):
+    global map
+    # go through the tiles in the rectangle and make them passable
+    for x in range(room.x1 + 1, room.x2):
+        for y in range(room.y1 + 1, room.y2):
+            map[x][y].blocked = False
+            map[x][y].block_sight = False
+
 
 def handle_keys():
 
@@ -77,17 +108,18 @@ def handle_keys():
 def make_map():
     global map
 
-    # fill map with unblocked tiles
-    map = [[ Tile(False)
+    # fill map with blocked tiles
+    map = [[ Tile(True)
         for y in range(MAP_HEIGHT) ]
             for x in range(MAP_WIDTH) ]
 
-    # some pillars to test the blocked status
-    map[30][22].blocked = True
-    map[30][22].block_sight = True
-    map[50][22].blocked = True
-    map[50][22].block_sight = True
-
+    # create two test rooms
+    room1 = Rect(20, 15, 10, 15)
+    room2 = Rect(50, 15, 10, 15)
+    create_room(room1)
+    create_room(room2)
+    create_h_tunnel(25, 55, 23)
+    
 def render_all():
     # draw all objects in list
     for object in objects:
@@ -115,10 +147,16 @@ libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'python/libtcod tutorial'
 con = libtcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
 libtcod.sys_set_fps(LIMIT_FPS) # Limits FPS if the game is in real time
 
-# Create objects
+# Create player
 player = Object(SCREEN_WIDTH/2, SCREEN_HEIGHT/2, '@', libtcod.white)
+player.x = 25
+player.y = 23
+
+# Create NPC
 npc = Object(SCREEN_WIDTH/2 - 5, SCREEN_HEIGHT/2, '@', libtcod.yellow)
-objects = [npc, player] # list that holds all objects in the game
+
+# list that holds all objects in the game
+objects = [npc, player] 
 
 # Construct the map
 make_map()
