@@ -78,6 +78,7 @@ class Tile:
     # a map tile and its properties
     def __init__(self, blocked, block_sight = None):
         self.blocked = blocked
+        self.explored = False
 
         # by default, if a tile is blocked, it will also block sight
         if block_sight is None: block_sight = blocked
@@ -212,16 +213,19 @@ def render_all():
                 wall = map[x][y].block_sight
                 if not visible:
                     # aka it's out of player's FOV
-                    if wall:
-                        libtcod.console_set_char_background(con, x, y, color_dark_wall, libtcod.BKGND_SET)
-                    else:
-                        libtcod.console_set_char_background(con, x, y, color_dark_ground, libtcod.BKGND_SET)
+                    # if it's not visible right now, player can only see it if it's explored
+                    if map[x][y].explored:
+                        if wall:
+                            libtcod.console_set_char_background(con, x, y, color_dark_wall, libtcod.BKGND_SET)
+                        else:
+                            libtcod.console_set_char_background(con, x, y, color_dark_ground, libtcod.BKGND_SET)
                 else:
                     # it is visible
                     if wall:
                         libtcod.console_set_char_background(con, x, y, color_light_wall, libtcod.BKGND_SET)
                     else:
                         libtcod.console_set_char_background(con, x, y, color_light_ground, libtcod.BKGND_SET)
+                    map[x][y].explored = True
 
     # draw all objects in list
     for object in objects:
