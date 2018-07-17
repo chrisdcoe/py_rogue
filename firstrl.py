@@ -13,10 +13,19 @@ ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
 
+# field of view
+FOV_ALGO = 0 # default FOV algorithm
+FOV_LIGHT_WALLS = True
+TORCH_RADIUS = 10
+
+# misc settings
 LIMIT_FPS = 20
 
-color_dark_wall = libtcod.Color(0, 0, 100) # dark blue
-color_dark_ground = libtcod.Color(50, 50, 150) # dark indigo
+# color definitions
+color_dark_wall = libtcod.Color(0, 0, 100) 
+color_light_wall = libtcod.Color(130, 110, 50) 
+color_dark_ground = libtcod.Color(50, 50, 150) 
+color_light_ground = libtcod.Color(200,180,50)
 
 #########################
 ### CLASS DEFINITIONS ###
@@ -93,14 +102,16 @@ def create_v_tunnel(y1, y2, x):
         map[x][y].block_sight = False
 
 def create_room(room):
-    global map
     # go through the tiles in the rectangle and make them passable
+    global map
     for x in range(room.x1 + 1, room.x2):
         for y in range(room.y1 + 1, room.y2):
             map[x][y].blocked = False
             map[x][y].block_sight = False
 
 def handle_keys():
+    global fov_recompute
+
     # misc keys
     key = libtcod.console_wait_for_keypress(True)
     if key.vk == libtcod.KEY_ENTER and key.lalt:
@@ -112,15 +123,19 @@ def handle_keys():
     # movement keys
     if libtcod.console_is_key_pressed(libtcod.KEY_UP):
         player.move(0, -1)
+        fov_recompute = True
     elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
         player.move(0, 1)
+        fov_recompute = True
     elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
         player.move(-1, 0)
+        fov_recompute = True
     elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
         player.move(1, 0)
+        fov_recompute = True
 
 def make_map():
-    global map
+    global map, player
 
     # fill map with blocked tiles
     map = [[ Tile(True)
@@ -181,19 +196,37 @@ def make_map():
             
 
 def render_all():
+    global fov_map, color_dark_wall, color_light_wall
+    global color_dark_ground, color_light_ground
+    global fov_recompute
+    
+    if fov_recompute:
+        # recompute FOV if needed (such as player moving)
+        fov_recompute = False
+        libtcod.map_compute_fov(fov_map, player.x, player.y, TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
+
+        # go through all tiles and draw them to screen with appropriate background color
+        for y in range(MAP_HEIGHT):
+            for x in range(MAP_WIDTH):
+                visible = libtcod.map_is_in_fov(fov_map, x, y)
+                wall = map[x][y].block_sight
+                if not visible:
+                    # aka it's out of player's FOV
+                    if wall:
+                        libtcod.console_set_char_background(con, x, y, color_dark_wall, libtcod.BKGND_SET)
+                    else:
+                        libtcod.console_set_char_background(con, x, y, color_dark_ground, libtcod.BKGND_SET)
+                else:
+                    # it is visible
+                    if wall:
+                        libtcod.console_set_char_background(con, x, y, color_light_wall, libtcod.BKGND_SET)
+                    else:
+                        libtcod.console_set_char_background(con, x, y, color_light_ground, libtcod.BKGND_SET)
+
     # draw all objects in list
     for object in objects:
         object.draw()
 
-    # go through all tiles and draw them to screen with appropriate background color
-    for y in range(MAP_HEIGHT):
-        for x in range(MAP_WIDTH):
-            wall = map[x][y].block_sight
-            if wall:
-                libtcod.console_set_char_background(con, x, y, color_dark_wall, libtcod.BKGND_SET)
-            else:
-                libtcod.console_set_char_background(con, x, y, color_dark_ground, libtcod.BKGND_SET)
-    
     # blit the contents of the new offscreen console to the root console
     libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
 
@@ -218,6 +251,14 @@ objects = [npc, player]
 
 # Construct the map
 make_map()
+
+# Create field of vision map
+fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
+for y in range(MAP_HEIGHT):
+    for x in range(MAP_WIDTH):
+        libtcod.map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
+
+fov_recompute = True
 
 # Main Loop
 while not libtcod.console_is_window_closed():
