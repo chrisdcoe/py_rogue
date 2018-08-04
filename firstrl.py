@@ -27,8 +27,8 @@ LIMIT_FPS = 20
 # color definitions
 color_dark_wall = libtcod.Color(0, 0, 100) 
 color_light_wall = libtcod.Color(130, 110, 50) 
-color_dark_ground = libtcod.Color(50, 50, 150) 
-color_light_ground = libtcod.Color(200,180,50)
+color_dark_ground = libtcod.Color(20, 20, 60) 
+color_light_ground = libtcod.Color(50,40,20)
 
 #########################
 ### CLASS DEFINITIONS ###
